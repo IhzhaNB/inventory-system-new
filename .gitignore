@@ -1,0 +1,39 @@
+# Binary files (Hasil build Go)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+inventory-system   # Ganti dengan nama binary lu
+
+# Environment variables (SANGAT PENTING!)
+# Jangan pernah push file .env ke GitHub
+.env
+*.env
+auth.key
+
+# Logs
+# File log yang tadi kita buat jangan di-push karena isinya data aktivitas
+logs/
+*.log
+
+# Dependency folder (Opsional)
+# Karena Go pakai go.mod, kita biasanya nggak perlu push folder vendor
+vendor/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Swagger (Opsional)
+# Folder docs/ hasil generate swag init boleh di-push kalau mau
+# dokumentasi lu bisa dibaca orang lain langsung di GitHub.
+# Tapi kalau mau generate lokal saja, bisa masukkan ke sini:
+# docs/
+
+# Testing
+coverage.out

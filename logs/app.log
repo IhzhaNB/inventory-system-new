@@ -1,5 +1,0 @@
-2026-02-28T00:15:27.900+0700	[34mINFO[0m	cmd/root.go:36	Config and Logger successfully loaded!
-2026-02-28T00:15:27.989+0700	[34mINFO[0m	cmd/root.go:43	Successfully connected to the database!
-2026-02-28T00:15:27.990+0700	[34mINFO[0m	cmd/root.go:60	🚀 Server is running	{"port": "8080"}
-2026-02-28T00:15:55.464+0700	[34mINFO[0m	cmd/root.go:70	Shutting down server gracefully...
-2026-02-28T00:15:55.465+0700	[34mINFO[0m	cmd/root.go:79	Server exited properly. Bye!
