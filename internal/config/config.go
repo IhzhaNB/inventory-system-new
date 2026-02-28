@@ -28,17 +28,10 @@ func (db *DBConfig) GetURL() string {
 		db.User, db.Password, db.Host, db.Port, db.Name, db.SSLMode)
 }
 
-// JWTConfig holds authentication settings
-type JWTConfig struct {
-	Secret string `mapstructure:"JWT_SECRET"`
-	Expire string `mapstructure:"JWT_EXPIRE"`
-}
-
 // Config is the master struct that groups all configurations
 type Config struct {
 	App AppConfig `mapstructure:",squash"`
 	DB  DBConfig  `mapstructure:",squash"`
-	JWT JWTConfig `mapstructure:",squash"`
 }
 
 // LoadConfig reads the configuration from the provided path.
