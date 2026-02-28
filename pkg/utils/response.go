@@ -9,22 +9,22 @@ import (
 
 // Response represents the standard JSON format for all API responses.
 type Response struct {
-	Status  int         `json:"status"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`   // omitempty: omitted if empty
-	Meta    interface{} `json:"meta,omitempty"`   // Used for pagination metadata
-	Errors  interface{} `json:"errors,omitempty"` // Used for specific error details/validation
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`   // omitempty: omitted if empty
+	Meta    any    `json:"meta,omitempty"`   // Used for pagination metadata
+	Errors  any    `json:"errors,omitempty"` // Used for specific error details/validation
 }
 
 // WriteJSON is a helper function to encode and send JSON responses.
-func WriteJSON(w http.ResponseWriter, status int, payload interface{}) {
+func WriteJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(payload)
 }
 
 // Success sends a standard success response (e.g., 200 OK or 201 Created).
-func Success(w http.ResponseWriter, r *http.Request, status int, message string, data interface{}) {
+func Success(w http.ResponseWriter, r *http.Request, status int, message string, data any) {
 	res := Response{
 		Status:  status,
 		Message: message,
@@ -37,7 +37,7 @@ func Success(w http.ResponseWriter, r *http.Request, status int, message string,
 }
 
 // Error sends a standard failure response (e.g., 400 Bad Request, 500 Internal Server Error).
-func Error(w http.ResponseWriter, r *http.Request, status int, message string, errors interface{}) {
+func Error(w http.ResponseWriter, r *http.Request, status int, message string, errors any) {
 	res := Response{
 		Status:  status,
 		Message: message,

@@ -24,7 +24,7 @@ func SetupRoute(handlers *handler.Handler, repos *repository.Repository) *chi.Mu
 	authMiddleware := customMiddleware.Authenticate(repos.Session)
 	// Swagger endpoint
 	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), // Poin ke file json docs
+		httpSwagger.URL("/swagger/doc.json"),
 	))
 
 	// API Versioning Group

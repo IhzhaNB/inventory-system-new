@@ -55,7 +55,7 @@ func Authenticate(sessionRepo repository.SessionRepository) func(http.Handler) h
 			// 4. If valid, store the UserID and Role into the Request Context.
 			// This allows subsequent endpoints (e.g., /items) to identify the authenticated user.
 			ctx := context.WithValue(r.Context(), UserIDKey, session.UserID)
-			ctx = context.WithValue(ctx, UserRoleKey, session.Role)
+			ctx = context.WithValue(ctx, UserRoleKey, string(session.Role))
 
 			// Proceed to the next handler with the populated context.
 			next.ServeHTTP(w, r.WithContext(ctx))

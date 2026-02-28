@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"inventory-system/internal/dto/request"
 	"inventory-system/internal/service"
@@ -28,11 +29,11 @@ func NewUserHandler(userService service.UserService, logger *zap.Logger) *UserHa
 // CreateUser godoc
 // @Summary      Create a new user
 // @Description  Register a new user (Admin or Staff) into the system. Requires authentication.
+// @Description  **Required Roles:** `super_admin`, `admin`
 // @Tags         Users
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        Authorization header string true "Insert your token with format: Bearer <token>"
 // @Param        request body request.CreateUserRequest true "User data payload"
 // @Success      201  {object}  utils.Response{data=response.UserResponse} "User created successfully"
 // @Failure      400  {object}  utils.Response "Invalid request payload"
@@ -74,4 +75,47 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// 3. Return a successful 201 Created response.
 	utils.Success(w, r, http.StatusCreated, "User created successfully", userRes)
+}
+
+// GetUsers godoc
+// @Summary      Get all users
+// @Description  Retrieve a paginated list of users with optional search filtering.
+// @Description  **Required Roles:** `super_admin`, `admin`
+// @Tags         Users
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        page    query     int     false  "Page number for pagination (default: 1)"
+// @Param        limit   query     int     false  "Number of items per page (default: 10)"
+// @Param        search  query     string  false  "Search filter for user name or email"
+// @Success 200 {object} utils.Response{data=response.UserPaginatedResponse} "Users retrieved successfully"
+// @Failure      401  {object}  utils.Response "Unauthorized - Invalid or expired session"
+// @Failure      500  {object}  utils.Response "Internal server error"
+// @Router       /api/v1/users [get]
+func (h *UserHandler) GetUsers(w http.ResponseWriter, r *http.Request) {
+	// 1. Extract values from URL (they are still strings at this stage)
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+	search := r.URL.Query().Get("search")
+
+	// 2. Convert Strings to Integers (Int)
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+
+	// 3. Wrap into a Pagination Request DTO
+	query := request.PaginationQuery{
+		Page:   page,
+		Limit:  limit,
+		Search: search,
+	}
+
+	// 4. Pass the request to the Service layer
+	result, err := h.userService.GetUsers(r.Context(), query)
+	if err != nil {
+		utils.Error(w, r, http.StatusInternalServerError, err.Error(), nil)
+		return
+	}
+
+	// 5. Return the response to the Client
+	utils.Success(w, r, http.StatusOK, "Users retrieved successfully", result)
 }

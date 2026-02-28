@@ -13,6 +13,8 @@ import (
 type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	Create(ctx context.Context, user *model.User) error
+	CountUsers(ctx context.Context, search string) (int64, error)
+	FindAllUsers(ctx context.Context, limit, offset int, search string) ([]*model.User, error)
 }
 
 // userRepository is the concrete implementation of UserRepository.
@@ -73,4 +75,36 @@ func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 		user.Role,
 	)
 	return err
+}
+
+func (r *userRepository) CountUsers(ctx context.Context, search string) (int64, error) {
+	query := `SELECT COUNT(id) FROM users WHERE name ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'`
+	var total int64
+	err := r.db.QueryRow(ctx, query, search).Scan(&total)
+	return total, err
+}
+
+func (r *userRepository) FindAllUsers(ctx context.Context, limit, offset int, search string) ([]*model.User, error) {
+	query := `
+		SELECT id, name, email, role
+		FROM users
+		WHERE name ILIKE '%' || $1 || '%' OR email ILIKE '%' || $1 || '%'
+		ORDER BY name ASC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := r.db.Query(ctx, query, search, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Role); err != nil {
+			return nil, err
+		}
+		users = append(users, &u)
+	}
+	return users, rows.Err()
 }

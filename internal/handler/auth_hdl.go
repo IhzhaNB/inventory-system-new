@@ -84,7 +84,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        Authorization header string true "Insert your token with format: Bearer <token>"
 // @Success      200  {object}  utils.Response "Logout successful"
 // @Failure      401  {object}  utils.Response "Unauthorized"
 // @Failure      500  {object}  utils.Response "Internal server error"
