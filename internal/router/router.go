@@ -1,9 +1,10 @@
 package router
 
 import (
-	"inventory-system/internal/handler"
-
 	_ "inventory-system/docs"
+	"inventory-system/internal/handler"
+	customMiddleware "inventory-system/internal/middleware"
+	"inventory-system/internal/repository"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -11,7 +12,7 @@ import (
 )
 
 // Setup initializes the main chi router, attaches middlewares, and registers all sub-routes.
-func SetupRoute(handler *handler.Handler, jwtSecret string) *chi.Mux {
+func SetupRoute(handlers *handler.Handler, repos *repository.Repository) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Standard Global Middlewares
@@ -20,8 +21,7 @@ func SetupRoute(handler *handler.Handler, jwtSecret string) *chi.Mux {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// authMiddleware := customMiddleware.Authenticate(jwtSecret)
-
+	authMiddleware := customMiddleware.Authenticate(repos.Session)
 	// Swagger endpoint
 	r.Get("/swagger/*", httpSwagger.Handler(
 		httpSwagger.URL("http://localhost:8080/swagger/doc.json"), // Poin ke file json docs
@@ -31,13 +31,9 @@ func SetupRoute(handler *handler.Handler, jwtSecret string) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 
 		// Register module routes here
-		AuthRoutes(r, handler.Auth)
+		AuthRoutes(r, handlers.Auth, authMiddleware)
+		UserRoutes(r, handlers.User, authMiddleware)
 
-		// Nanti lu tinggal nambahin modul lain dengan gampang:
-		// RegisterItemRoutes(r, handlers.Item)
-		// RegisterSaleRoutes(r, handlers.Sale)
-
-		// Kalau butuh rute yang diprotect JWT, bisa di-group di dalam sini juga nanti
 	})
 
 	return r

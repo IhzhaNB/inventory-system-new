@@ -18,8 +18,8 @@ import (
 
 // AuthService defines the business logic contract for authentication.
 type AuthService interface {
-	// Login verifies user credentials and generates an authentication token.
 	Login(ctx context.Context, req request.LoginRequest) (*response.AuthResponse, error)
+	Logout(ctx context.Context, tokenString string) error
 }
 
 // authService is the concrete implementation of AuthService.
@@ -71,7 +71,7 @@ func (s *authService) Login(ctx context.Context, req request.LoginRequest) (*res
 		ExpiredAt:  expiredAt,
 	}
 
-	err = s.repo.Session.CreateSession(ctx, newSession)
+	err = s.repo.Session.Create(ctx, newSession)
 	if err != nil {
 		s.logger.Error("System Error: Failed to save session to DB",
 			zap.String("request_id", reqID),
@@ -82,16 +82,33 @@ func (s *authService) Login(ctx context.Context, req request.LoginRequest) (*res
 
 	// 4. Map the database User model to the safe UserResponse DTO.
 	// This ensures sensitive data like PasswordHash and DeletedAt are not exposed to the client.
-	userResponse := response.UserResponse{
-		ID:    user.ID,
-		Name:  user.Name,
-		Email: user.Email,
-		Role:  string(user.Role),
-	}
+	userResponse := response.ToUserResponse(user)
 
 	// 5. Construct and return the final AuthResponse containing the token and user data.
 	return &response.AuthResponse{
 		AccessToken: sessionID.String(),
 		User:        userResponse,
 	}, nil
+}
+
+func (s *authService) Logout(ctx context.Context, tokenString string) error {
+	reqID := middleware.GetReqID(ctx)
+	s.logger.Info("Attempting logout", zap.String("request_id", reqID))
+
+	// 1. Validasi string token jadi UUID
+	sessionID, err := uuid.Parse(tokenString)
+	if err != nil {
+		s.logger.Warn("Invalid token format for logout", zap.String("request_id", reqID))
+		return errors.New("invalid session token")
+	}
+
+	// 2. Panggil Repo buat update revoked_at
+	err = s.repo.Session.Revoke(ctx, sessionID)
+	if err != nil {
+		s.logger.Error("System Error: Failed to revoke session", zap.Error(err), zap.String("request_id", reqID))
+		return errors.New("failed to process logout")
+	}
+
+	s.logger.Info("Logout successful", zap.String("request_id", reqID), zap.String("session_id", sessionID.String()))
+	return nil
 }

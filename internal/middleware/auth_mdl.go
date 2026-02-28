@@ -2,14 +2,16 @@ package middleware
 
 import (
 	"context"
-	"inventory-system/pkg/utils"
 	"net/http"
 	"strings"
 
-	"github.com/golang-jwt/jwt/v5"
+	"inventory-system/internal/repository"
+	"inventory-system/pkg/utils"
+
+	"github.com/google/uuid"
 )
 
-// ContextKey adalah custom type untuk key di context biar gak tabrakan sama package lain
+// Create a custom type for Context Keys to prevent collisions with other packages.
 type ContextKey string
 
 const (
@@ -17,15 +19,12 @@ const (
 	UserRoleKey ContextKey = "user_role"
 )
 
-// ==========================================
-// 1. AUTHENTICATION MIDDLEWARE
-// ==========================================
-
-// Authenticate mengecek keaslian JWT token dari header Authorization
-func Authenticate(secret string) func(http.Handler) http.Handler {
+// Authenticate verifies the validity of the UUID token against the database.
+func Authenticate(sessionRepo repository.SessionRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 1. Ambil token dari header "Authorization: Bearer <token>"
+
+			// 1. Extract the token from the authorization header.
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				utils.Error(w, r, http.StatusUnauthorized, "Missing authorization header", nil)
@@ -38,75 +37,28 @@ func Authenticate(secret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			tokenString := parts[1]
-
-			// 2. Validasi dan Parse Token
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				// Pastikan algoritma signing-nya sesuai
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, http.ErrAbortHandler
-				}
-				return []byte(secret), nil
-			})
-
-			if err != nil || !token.Valid {
-				utils.Error(w, r, http.StatusUnauthorized, "Invalid or expired token", nil)
+			// 2. Parse the token string into a UUID.
+			sessionID, err := uuid.Parse(parts[1])
+			if err != nil {
+				utils.Error(w, r, http.StatusUnauthorized, "Invalid token format", nil)
 				return
 			}
 
-			// 3. Ambil data payload (claims) dari dalam token
-			claims, ok := token.Claims.(jwt.MapClaims)
-			if !ok {
-				utils.Error(w, r, http.StatusUnauthorized, "Invalid token claims", nil)
+			// 3. Query the database to check if the session is valid.
+			session, err := sessionRepo.GetValid(r.Context(), sessionID)
+			if err != nil {
+				// If the session is not found, expired, or revoked, reject the request.
+				utils.Error(w, r, http.StatusUnauthorized, "Token is expired or invalid", nil)
 				return
 			}
 
-			userID := claims["user_id"].(string)
-			role := claims["role"].(string)
+			// 4. If valid, store the UserID and Role into the Request Context.
+			// This allows subsequent endpoints (e.g., /items) to identify the authenticated user.
+			ctx := context.WithValue(r.Context(), UserIDKey, session.UserID)
+			ctx = context.WithValue(ctx, UserRoleKey, session.Role)
 
-			// 4. Simpan UserID dan Role ke dalam Context Request
-			// Biar Handler yang dipanggil setelah ini bisa tau siapa yang lagi login
-			ctx := context.WithValue(r.Context(), UserIDKey, userID)
-			ctx = context.WithValue(ctx, UserRoleKey, role)
-
-			// Lanjut ke rute berikutnya dengan context yang udah diselipin data user
+			// Proceed to the next handler with the populated context.
 			next.ServeHTTP(w, r.WithContext(ctx))
-		})
-	}
-}
-
-// ==========================================
-// 2. AUTHORIZATION MIDDLEWARE (RBAC)
-// ==========================================
-
-// RequireRoles mengecek apakah user yang login punya role yang diizinkan
-func RequireRoles(allowedRoles ...string) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// 1. Ambil role dari context (yang tadi dimasukin sama middleware Authenticate)
-			userRole, ok := r.Context().Value(UserRoleKey).(string)
-			if !ok || userRole == "" {
-				utils.Error(w, r, http.StatusUnauthorized, "Unauthorized access", nil)
-				return
-			}
-
-			// 2. Cek apakah role user ada di dalam daftar allowedRoles
-			isAllowed := false
-			for _, role := range allowedRoles {
-				if userRole == role {
-					isAllowed = true
-					break
-				}
-			}
-
-			// 3. Kalau gak ada yang cocok, tolak aksesnya (403 Forbidden)
-			if !isAllowed {
-				utils.Error(w, r, http.StatusForbidden, "You don't have permission to access this resource", nil)
-				return
-			}
-
-			// Kalau aman, lanjut ke handler!
-			next.ServeHTTP(w, r)
 		})
 	}
 }

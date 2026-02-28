@@ -12,7 +12,7 @@ import (
 // UserRepository defines the contract for user database operations.
 type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
-	// Add other methods like Create, FindByID, etc., later as needed
+	Create(ctx context.Context, user *model.User) error
 }
 
 // userRepository is the concrete implementation of UserRepository.
@@ -58,4 +58,19 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*model.
 	}
 
 	return &user, nil
+}
+
+func (r *userRepository) Create(ctx context.Context, user *model.User) error {
+	query := `
+		INSERT INTO users (id, name, email, password_hash, role)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := r.db.Exec(ctx, query,
+		user.ID,
+		user.Name,
+		user.Email,
+		user.PasswordHash,
+		user.Role,
+	)
+	return err
 }

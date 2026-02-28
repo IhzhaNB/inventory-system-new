@@ -48,7 +48,7 @@ var rootCmd = &cobra.Command{
 		handlers := handler.NewHandler(services, logger)
 
 		// 3. ROUTING & MIDDLEWARE SETUP
-		r := router.SetupRoute(handlers, cfg.JWT.Secret)
+		r := router.SetupRoute(handlers, repos)
 
 		// 4. START HTTP SERVER & GRACEFUL SHUTDOWN
 		srv := &http.Server{
