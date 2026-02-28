@@ -3,14 +3,16 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
-	"inventory-system/internal/config"
 	"inventory-system/internal/dto/request"
 	"inventory-system/internal/dto/response"
+	"inventory-system/internal/model"
 	"inventory-system/internal/repository"
 	"inventory-system/pkg/utils"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -22,17 +24,15 @@ type AuthService interface {
 
 // authService is the concrete implementation of AuthService.
 type authService struct {
-	repo      *repository.Repository
-	jwtConfig config.JWTConfig
-	logger    *zap.Logger
+	repo   *repository.Repository
+	logger *zap.Logger
 }
 
 // NewAuthService creates and returns a new instance of AuthService.
-func NewAuthService(repo *repository.Repository, jwtConfig config.JWTConfig, logger *zap.Logger) AuthService {
+func NewAuthService(repo *repository.Repository, logger *zap.Logger) AuthService {
 	return &authService{
-		repo:      repo,
-		jwtConfig: jwtConfig,
-		logger:    logger,
+		repo:   repo,
+		logger: logger,
 	}
 }
 
@@ -60,19 +60,25 @@ func (s *authService) Login(ctx context.Context, req request.LoginRequest) (*res
 		return nil, errors.New("invalid email or password")
 	}
 
-	// 3. Generate a JSON Web Token (JWT) for the authenticated user.
-	token, err := utils.GenerateJWT(user.ID.String(), user.Role, s.jwtConfig.Secret, s.jwtConfig.Expire)
+	// 3. Generate a Stateful UUID Session for the authenticated user.
+	sessionID := uuid.New()
+	expiredAt := time.Now().Add(24 * time.Hour)
+
+	newSession := &model.Session{
+		BaseSimple: model.BaseSimple{ID: sessionID},
+		UserID:     user.ID,
+		Role:       user.Role,
+		ExpiredAt:  expiredAt,
+	}
+
+	err = s.repo.Session.CreateSession(ctx, newSession)
 	if err != nil {
-		// This is a system error, so we log it as an Error level.
-		s.logger.Error("System Error: Failed to generate JWT token",
+		s.logger.Error("System Error: Failed to save session to DB",
 			zap.String("request_id", reqID),
 			zap.Error(err),
-			zap.String("user_id", user.ID.String()),
 		)
 		return nil, errors.New("failed to generate authentication token")
 	}
-
-	s.logger.Info("Login successful", zap.String("request_id", reqID), zap.String("user_id", user.ID.String()))
 
 	// 4. Map the database User model to the safe UserResponse DTO.
 	// This ensures sensitive data like PasswordHash and DeletedAt are not exposed to the client.
@@ -80,12 +86,12 @@ func (s *authService) Login(ctx context.Context, req request.LoginRequest) (*res
 		ID:    user.ID,
 		Name:  user.Name,
 		Email: user.Email,
-		Role:  user.Role,
+		Role:  string(user.Role),
 	}
 
 	// 5. Construct and return the final AuthResponse containing the token and user data.
 	return &response.AuthResponse{
-		AccessToken: token,
+		AccessToken: sessionID.String(),
 		User:        userResponse,
 	}, nil
 }

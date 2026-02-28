@@ -1,11 +1,13 @@
 package repository
 
 type Repository struct {
-	User UserRepository
+	User    UserRepository
+	Session SessionRepository
 }
 
 func NewRepository(db PgxIface) *Repository {
 	return &Repository{
-		User: NewUserRepository(db),
+		User:    NewUserRepository(db),
+		Session: NewSessionRepository(db),
 	}
 }

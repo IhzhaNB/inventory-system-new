@@ -44,11 +44,11 @@ var rootCmd = &cobra.Command{
 
 		// 2. DEPENDENCY INJECTION (Wiring up the app)
 		repos := repository.NewRepository(dbPool)
-		services := service.NewService(repos, &cfg, logger)
+		services := service.NewService(repos, logger)
 		handlers := handler.NewHandler(services, logger)
 
 		// 3. ROUTING & MIDDLEWARE SETUP
-		r := router.SetupRoute(handlers)
+		r := router.SetupRoute(handlers, cfg.JWT.Secret)
 
 		// 4. START HTTP SERVER & GRACEFUL SHUTDOWN
 		srv := &http.Server{

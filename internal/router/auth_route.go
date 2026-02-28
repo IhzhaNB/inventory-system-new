@@ -8,7 +8,8 @@ import (
 
 // RegisterAuthRoutes sets up the routing endpoints for authentication.
 func AuthRoutes(r chi.Router, authHandler handler.AuthHandler) {
-	r.Post("/login", authHandler.Login)
-	// Nanti kalau ada register atau forgot-password, tinggal tambahin di sini:
-	// r.Post("/register", authHandler.Register)
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/login", authHandler.Login)
+		// r.Post("/register", authHandler.Register)
+	})
 }

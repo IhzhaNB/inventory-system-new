@@ -11,7 +11,7 @@ import (
 )
 
 // Setup initializes the main chi router, attaches middlewares, and registers all sub-routes.
-func SetupRoute(handler *handler.Handler) *chi.Mux {
+func SetupRoute(handler *handler.Handler, jwtSecret string) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Standard Global Middlewares
@@ -19,6 +19,8 @@ func SetupRoute(handler *handler.Handler) *chi.Mux {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	// authMiddleware := customMiddleware.Authenticate(jwtSecret)
 
 	// Swagger endpoint
 	r.Get("/swagger/*", httpSwagger.Handler(

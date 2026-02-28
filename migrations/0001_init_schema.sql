@@ -11,11 +11,24 @@ CREATE TABLE users (
     role VARCHAR(20) NOT NULL DEFAULT 'cashier',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- Added for Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
 -- ==========================================
--- 2. MASTER DATA: WAREHOUSES & SHELVES
+-- 2. SESSIONS TABLE (Stateful Token Auth)
+-- ==========================================
+CREATE TABLE sessions (
+    id UUID PRIMARY KEY, -- Generate token UUID dari backend (Golang)
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL,
+    expired_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+
+-- ==========================================
+-- 3. MASTER DATA: WAREHOUSES & SHELVES
 -- ==========================================
 CREATE TABLE warehouses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,7 +36,7 @@ CREATE TABLE warehouses (
     location TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- Added for Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
 CREATE TABLE shelves (
@@ -32,11 +45,12 @@ CREATE TABLE shelves (
     name VARCHAR(50) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- Added for Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
+CREATE INDEX idx_shelves_warehouse_id ON shelves(warehouse_id);
 
 -- ==========================================
--- 3. MASTER DATA: CATEGORIES
+-- 4. MASTER DATA: CATEGORIES
 -- ==========================================
 CREATE TABLE categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,11 +58,11 @@ CREATE TABLE categories (
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- Added for Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
 
 -- ==========================================
--- 4. CORE INVENTORY: ITEMS
+-- 5. CORE INVENTORY: ITEMS
 -- ==========================================
 CREATE TABLE items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -60,12 +74,13 @@ CREATE TABLE items (
     price DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL -- Added for Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
 );
+CREATE INDEX idx_items_category_id ON items(category_id);
+CREATE INDEX idx_items_shelf_id ON items(shelf_id);
 
 -- ==========================================
--- 5. TRANSACTION: SALES & SALE ITEMS
--- (No deleted_at here! Transactions are immutable)
+-- 6. TRANSACTION: SALES & SALE ITEMS
 -- ==========================================
 CREATE TABLE sales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -73,6 +88,8 @@ CREATE TABLE sales (
     total_amount DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_sales_user_id ON sales(user_id);
+CREATE INDEX idx_sales_created_at ON sales(created_at DESC);
 
 CREATE TABLE sale_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -83,3 +100,22 @@ CREATE TABLE sale_items (
     subtotal DECIMAL(15, 2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_sale_items_sale_id ON sale_items(sale_id);
+CREATE INDEX idx_sale_items_item_id ON sale_items(item_id);
+
+-- ==========================================
+-- 7. INVENTORY LEDGER: STOCK LOGS
+-- ==========================================
+CREATE TABLE stock_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    item_id UUID NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    movement_type VARCHAR(20) NOT NULL, -- 'IN', 'OUT', 'ADJUSTMENT'
+    quantity INT NOT NULL,
+    balance_after INT NOT NULL,
+    reference_id UUID DEFAULT NULL, -- Nullable, bisa diisi sale_id atau purchase_id nanti
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_stock_logs_item_id ON stock_logs(item_id);
+CREATE INDEX idx_stock_logs_created_at ON stock_logs(created_at DESC);
