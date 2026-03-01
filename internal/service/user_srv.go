@@ -15,8 +15,10 @@ import (
 )
 
 type UserService interface {
-	CreateUser(ctx context.Context, req request.CreateUserRequest) (*response.UserResponse, error)
+	CreateUser(ctx context.Context, req request.CreateUserRequest, requesterRole string) (*response.UserResponse, error)
 	GetUsers(ctx context.Context, req request.PaginationQuery) (*response.PaginatedResponse[response.UserResponse], error)
+	UpdateUser(ctx context.Context, id uuid.UUID, req request.UpdateUserRequest, requesterRole string) (*response.UserResponse, error)
+	DeleteUser(ctx context.Context, id uuid.UUID, requesterRole string) error
 }
 
 type userService struct {
@@ -29,7 +31,12 @@ func NewUserService(repo *repository.Repository, logger *zap.Logger) UserService
 }
 
 // CreateUser handles the business logic for registering a new user.
-func (s *userService) CreateUser(ctx context.Context, req request.CreateUserRequest) (*response.UserResponse, error) {
+func (s *userService) CreateUser(ctx context.Context, req request.CreateUserRequest, requesterRole string) (*response.UserResponse, error) {
+	if requesterRole == string(model.RoleAdmin) && req.Role == string(model.RoleSuperAdmin) {
+		s.logger.Warn("Admin attempted to create a super_admin", zap.String("requester_role", requesterRole))
+		return nil, errors.New("forbidden: admin cannot create a super_admin")
+	}
+
 	// 1. Validate the provided Role against allowed enums to ensure data integrity.
 	role := model.UserRole(req.Role)
 	if role != model.RoleSuperAdmin && role != model.RoleAdmin && role != model.RoleStaff {
@@ -78,13 +85,13 @@ func (s *userService) GetUsers(ctx context.Context, req request.PaginationQuery)
 	offset := (req.Page - 1) * req.Limit
 
 	// 3. Query Repo: "What is the total number of records in the DB?"
-	totalItems, err := s.repo.User.CountUsers(ctx, req.Search)
+	totalItems, err := s.repo.User.Count(ctx, req.Search)
 	if err != nil {
 		return nil, errors.New("failed to count users")
 	}
 
 	// 4. Query Repo: "Fetch [Limit] records starting from the [Offset] position"
-	users, err := s.repo.User.FindAllUsers(ctx, req.Limit, offset, req.Search)
+	users, err := s.repo.User.FindAll(ctx, req.Limit, offset, req.Search)
 	if err != nil {
 		return nil, errors.New("failed to fetch users")
 	}
@@ -106,4 +113,68 @@ func (s *userService) GetUsers(ctx context.Context, req request.PaginationQuery)
 	result := response.NewPaginatedResponse(userResponses, req.Page, req.Limit, totalItems)
 
 	return &result, nil
+}
+
+// UpdateUser handles the business logic for updating a user's details.
+func (s *userService) UpdateUser(ctx context.Context, id uuid.UUID, req request.UpdateUserRequest, requesterRole string) (*response.UserResponse, error) {
+	// 1. Check if the user exists
+	user, err := s.repo.User.FindByID(ctx, id)
+	if err != nil {
+		s.logger.Warn("Attempted to update a non-existent user", zap.String("user_id", id.String()), zap.Error(err))
+		return nil, errors.New("user not found")
+	}
+
+	// 🛡️ GUARD 1: Admin tidak boleh mengedit data Super Admin
+	if requesterRole == string(model.RoleAdmin) && user.Role == model.RoleSuperAdmin {
+		s.logger.Warn("Admin attempted to modify a super_admin", zap.String("target_user_id", id.String()))
+		return nil, errors.New("forbidden: admin cannot modify a super_admin")
+	}
+
+	// 🛡️ GUARD 2: Admin tidak boleh me-naikkan jabatan seseorang menjadi Super Admin
+	if requesterRole == string(model.RoleAdmin) && req.Role == string(model.RoleSuperAdmin) {
+		s.logger.Warn("Admin attempted to promote someone to super_admin", zap.String("target_user_id", id.String()))
+		return nil, errors.New("forbidden: admin cannot promote a user to super_admin")
+	}
+
+	// 2. Update the user model with new data
+	user.Name = req.Name
+	user.Role = model.UserRole(req.Role)
+
+	// 3. Save the changes to the database
+	if err := s.repo.User.Update(ctx, user); err != nil {
+		s.logger.Error("Database error while updating user", zap.String("user_id", id.String()), zap.Error(err))
+		return nil, errors.New("internal server error")
+	}
+
+	s.logger.Info("User updated successfully", zap.String("user_id", id.String()))
+
+	// 4. Map the updated model to a safe response DTO
+	res := response.ToUserResponse(user)
+	return &res, nil
+}
+
+// DeleteUser handles the business logic for removing a user.
+func (s *userService) DeleteUser(ctx context.Context, id uuid.UUID, requesterRole string) error {
+	// 1. Ensure the user exists before attempting to delete
+	user, err := s.repo.User.FindByID(ctx, id)
+	if err != nil {
+		s.logger.Warn("Attempted to delete a non-existent user", zap.String("user_id", id.String()), zap.Error(err))
+		return errors.New("user not found")
+	}
+
+	// 🛡️ GUARD: Admin tidak boleh menghapus Super Admin
+	if requesterRole == string(model.RoleAdmin) && user.Role == model.RoleSuperAdmin {
+		s.logger.Warn("Admin attempted to delete a super_admin", zap.String("target_user_id", id.String()))
+		return errors.New("forbidden: admin cannot delete a super_admin")
+	}
+
+	// 2. Execute the deletion
+	if err := s.repo.User.Delete(ctx, id); err != nil {
+		s.logger.Error("Database error while deleting user", zap.String("user_id", id.String()), zap.Error(err))
+		return errors.New("internal server error")
+	}
+
+	s.logger.Info("User deleted successfully", zap.String("user_id", id.String()))
+
+	return nil
 }

@@ -26,5 +26,7 @@ func UserRoutes(r chi.Router, userHandler handler.UserHandler, authMiddleware fu
 		// 3. ENDPOINTS: Only accessible if BOTH gates above are passed.
 		r.Post("/", userHandler.CreateUser)
 		r.Get("/", userHandler.GetUsers)
+		r.Put("/{id}", userHandler.UpdateUser)
+		r.Delete("/{id}", userHandler.DeleteUser)
 	})
 }

@@ -266,6 +266,144 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/users/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update user's name and role by their UUID.\n**Required Roles:** ` + "`" + `super_admin` + "`" + `, ` + "`" + `admin` + "`" + `",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/request.UpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User updated successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/response.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid UUID format or payload",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Insufficient role permissions",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove a user from the system by their UUID.\n**Required Roles:** ` + "`" + `super_admin` + "`" + `, ` + "`" + `admin` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Delete a user",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User deleted successfully",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid UUID format",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Insufficient role permissions",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.Response"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -279,18 +417,22 @@ const docTemplate = `{
             ],
             "properties": {
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "staff@gmail.com"
                 },
                 "name": {
                     "type": "string",
-                    "minLength": 3
+                    "minLength": 3,
+                    "example": "Staff Satu"
                 },
                 "password": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 6,
+                    "example": "password123"
                 },
                 "role": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "staff"
                 }
             }
         },
@@ -298,10 +440,33 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "admin@gmail.com"
                 },
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "password123"
+                }
+            }
+        },
+        "request.UpdateUserRequest": {
+            "type": "object",
+            "required": [
+                "name",
+                "role"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "example": "Staff Satu Update"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "admin",
+                        "staff"
+                    ],
+                    "example": "admin"
                 }
             }
         },

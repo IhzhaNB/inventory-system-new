@@ -3,14 +3,18 @@ definitions:
   request.CreateUserRequest:
     properties:
       email:
+        example: staff@gmail.com
         type: string
       name:
+        example: Staff Satu
         minLength: 3
         type: string
       password:
+        example: password123
         minLength: 6
         type: string
       role:
+        example: staff
         type: string
     required:
     - email
@@ -21,9 +25,26 @@ definitions:
   request.LoginRequest:
     properties:
       email:
+        example: admin@gmail.com
         type: string
       password:
+        example: password123
         type: string
+    type: object
+  request.UpdateUserRequest:
+    properties:
+      name:
+        example: Staff Satu Update
+        type: string
+      role:
+        enum:
+        - admin
+        - staff
+        example: admin
+        type: string
+    required:
+    - name
+    - role
     type: object
   response.AuthResponse:
     properties:
@@ -240,6 +261,96 @@ paths:
       security:
       - BearerAuth: []
       summary: Create a new user
+      tags:
+      - Users
+  /api/v1/users/{id}:
+    delete:
+      description: |-
+        Remove a user from the system by their UUID.
+        **Required Roles:** `super_admin`, `admin`
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "400":
+          description: Invalid UUID format
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "403":
+          description: Forbidden - Insufficient role permissions
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a user
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: |-
+        Update user's name and role by their UUID.
+        **Required Roles:** `super_admin`, `admin`
+      parameters:
+      - description: User UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/request.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User updated successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/response.UserResponse'
+              type: object
+        "400":
+          description: Invalid UUID format or payload
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "403":
+          description: Forbidden - Insufficient role permissions
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/utils.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a user
       tags:
       - Users
 securityDefinitions:
